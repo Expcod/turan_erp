@@ -38,7 +38,7 @@ class GroupListView(generics.ListCreateAPIView):
     """List and create groups"""
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
-    filter_set_class = GroupFilter
+    filterset_class = GroupFilter
     
     def get_queryset(self):
         user = self.request.user

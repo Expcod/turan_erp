@@ -5,7 +5,7 @@ django-cors-headers==4.6.0
 django-filter==24.3
 django-extensions==3.2.3
 django-jazzmin==3.0.1
-# psycopg2-binary==2.9.9  # PostgreSQL driver - uncomment if using PostgreSQL
+psycopg2-binary==2.9.9  # PostgreSQL driver
 python-dotenv==1.0.0
 celery==5.3.4
 redis==5.0.1

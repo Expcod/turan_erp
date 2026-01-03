@@ -15,7 +15,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin-panel/', admin.site.urls),
     
     # API v1 endpoints
     path('api/v1/auth/', include('apps.accounts.urls')),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { TeacherLayout } from "@/components/layouts/teacher-layout"
 import { useTranslation } from "@/lib/i18n"
@@ -9,26 +9,60 @@ import { GlassInput } from "@/components/ui/glass-input"
 import { GlassSelect } from "@/components/ui/glass-select"
 import { LessonCard } from "@/components/ui/lesson-card"
 import { Search, Filter } from "lucide-react"
+import { lessonsApi, groupsApi, type Lesson, type Group } from "@/lib/api"
 
 export default function TeacherLessonsPage() {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState("")
   const [groupFilter, setGroupFilter] = useState("")
+  const [lessons, setLessons] = useState<Lesson[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const lessons = [
-    { id: "1", week: 1, lesson: 1, title: "Introduction to Basics", group: "Group A1", status: "completed" as const },
-    { id: "2", week: 1, lesson: 2, title: "Fundamentals Part 1", group: "Group A1", status: "completed" as const },
-    { id: "3", week: 1, lesson: 3, title: "Fundamentals Part 2", group: "Group A1", status: "ongoing" as const },
-    { id: "4", week: 2, lesson: 1, title: "Advanced Concepts", group: "Group B2", status: "upcoming" as const },
-    { id: "5", week: 2, lesson: 2, title: "Practice Session", group: "Group B2", status: "upcoming" as const },
-    { id: "6", week: 1, lesson: 1, title: "Beginner Grammar", group: "Group C1", status: "completed" as const },
-  ]
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [lessonsResponse, groupsResponse] = await Promise.all([
+          lessonsApi.getAll(),
+          groupsApi.getAll(),
+        ])
+
+        // Handle paginated response
+        const ensureArray = <T,>(data: T[] | { results?: T[] } | null | undefined): T[] => {
+          if (Array.isArray(data)) return data
+          if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+            return data.results
+          }
+          return []
+        }
+
+        setLessons(ensureArray(lessonsResponse))
+        setGroups(ensureArray(groupsResponse))
+      } catch (error) {
+        console.error("Failed to fetch data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const filteredLessons = lessons.filter((lesson) => {
     const matchesSearch = lesson.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesGroup = !groupFilter || lesson.group === groupFilter
+    const matchesGroup = !groupFilter || lesson.group.toString() === groupFilter
     return matchesSearch && matchesGroup
   })
+
+  if (loading) {
+    return (
+      <TeacherLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-slate-500">{t("common.loading")}</p>
+        </div>
+      </TeacherLayout>
+    )
+  }
 
   return (
     <TeacherLayout>
@@ -36,7 +70,7 @@ export default function TeacherLessonsPage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-800">{t("admin.lessons")}</h1>
-          <p className="text-slate-500 mt-1">Manage your lessons across all groups</p>
+          <p className="text-slate-500 mt-1">{t("teacher.manageLessons")}</p>
         </div>
 
         {/* Filters */}
@@ -57,10 +91,11 @@ export default function TeacherLessonsPage() {
                 value={groupFilter}
                 onChange={(e) => setGroupFilter(e.target.value)}
                 options={[
-                  { value: "", label: "All Groups" },
-                  { value: "Group A1", label: "Group A1" },
-                  { value: "Group B2", label: "Group B2" },
-                  { value: "Group C1", label: "Group C1" },
+                  { value: "", label: t("teacher.allGroups") },
+                  ...groups.map((group) => ({
+                    value: group.id.toString(),
+                    label: group.name,
+                  })),
                 ]}
               />
             </div>
@@ -72,10 +107,10 @@ export default function TeacherLessonsPage() {
           {filteredLessons.map((lesson) => (
             <Link key={lesson.id} href={`/teacher/lessons/${lesson.id}`}>
               <LessonCard
-                week={lesson.week}
-                lessonNumber={lesson.lesson}
+                week={lesson.week_number}
+                lessonNumber={lesson.lesson_number}
                 title={lesson.title}
-                groupName={lesson.group}
+                groupName={lesson.group_name || `${t("teacher.group")} ${lesson.group}`}
                 status={lesson.status}
               />
             </Link>

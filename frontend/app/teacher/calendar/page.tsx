@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TeacherLayout } from "@/components/layouts/teacher-layout"
 import { useTranslation } from "@/lib/i18n"
 import { CalendarView } from "@/components/ui/calendar-view"
@@ -9,6 +9,7 @@ import { GlassCard } from "@/components/ui/glass-card"
 import { GlassButton } from "@/components/ui/glass-button"
 import { Clock, Users, BookOpen } from "lucide-react"
 import Link from "next/link"
+import { lessonsApi, type Lesson } from "@/lib/api"
 
 interface CalendarEvent {
   id: string
@@ -17,56 +18,65 @@ interface CalendarEvent {
   time: string
   type: "lesson" | "homework" | "other"
   groupName?: string
+  lessonData?: Lesson
 }
 
 export default function TeacherCalendarPage() {
   const { t } = useTranslation()
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Generate mock events
-  const events: CalendarEvent[] = [
-    {
-      id: "1",
-      title: "Group A1 - Lesson",
-      date: new Date(2024, 0, 15),
-      time: "09:00",
-      type: "lesson",
-      groupName: "Group A1",
-    },
-    {
-      id: "2",
-      title: "Group B2 - Lesson",
-      date: new Date(2024, 0, 15),
-      time: "11:00",
-      type: "lesson",
-      groupName: "Group B2",
-    },
-    {
-      id: "3",
-      title: "Group A1 - Homework Due",
-      date: new Date(2024, 0, 17),
-      time: "23:59",
-      type: "homework",
-      groupName: "Group A1",
-    },
-    {
-      id: "4",
-      title: "Group C1 - Lesson",
-      date: new Date(2024, 0, 18),
-      time: "14:00",
-      type: "lesson",
-      groupName: "Group C1",
-    },
-    // Add more events for current month
-    ...Array.from({ length: 10 }, (_, i) => ({
-      id: `gen-${i}`,
-      title: `Group ${["A1", "B2", "C1"][i % 3]} - Lesson`,
-      date: new Date(new Date().getFullYear(), new Date().getMonth(), ((i * 3) % 28) + 1),
-      time: `${9 + (i % 3) * 2}:00`,
-      type: "lesson" as const,
-      groupName: `Group ${["A1", "B2", "C1"][i % 3]}`,
-    })),
-  ]
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        const lessonsResponse = await lessonsApi.getAll()
+
+        // Handle paginated response
+        const ensureArray = <T,>(data: T[] | { results?: T[] } | null | undefined): T[] => {
+          if (Array.isArray(data)) return data
+          if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+            return data.results
+          }
+          return []
+        }
+
+        const lessons = ensureArray(lessonsResponse)
+
+        // Convert lessons to calendar events
+        const calendarEvents: CalendarEvent[] = lessons.map((lesson) => {
+          const lessonDate = new Date(lesson.scheduled_date)
+          return {
+            id: lesson.id.toString(),
+            title: `${lesson.group_name || t("teacher.group")} - ${lesson.title}`,
+            date: lessonDate,
+            time: lesson.scheduled_time,
+            type: "lesson" as const,
+            groupName: lesson.group_name,
+            lessonData: lesson,
+          }
+        })
+
+        setEvents(calendarEvents)
+      } catch (error) {
+        console.error("Failed to fetch lessons:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLessons()
+  }, [t])
+
+  if (loading) {
+    return (
+      <TeacherLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-slate-500">{t("common.loading")}</p>
+        </div>
+      </TeacherLayout>
+    )
+  }
 
   return (
     <TeacherLayout>
@@ -75,7 +85,7 @@ export default function TeacherCalendarPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">{t("teacher.calendar")}</h1>
           <p className="text-slate-500 mt-1">
-            {t("teacher.monthlyView")} / {t("teacher.weeklyView")}
+            {t("teacher.calendarDescription")}
           </p>
         </div>
 
@@ -94,7 +104,7 @@ export default function TeacherCalendarPage() {
                       <Clock size={16} className="text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500">Time</p>
+                      <p className="text-sm text-slate-500">{t("teacher.time")}</p>
                       <p className="font-medium text-slate-700">{selectedEvent.time}</p>
                     </div>
                   </div>
@@ -103,7 +113,7 @@ export default function TeacherCalendarPage() {
                       <Users size={16} className="text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500">Group</p>
+                      <p className="text-sm text-slate-500">{t("teacher.group")}</p>
                       <p className="font-medium text-slate-700">{selectedEvent.groupName}</p>
                     </div>
                   </div>
@@ -112,15 +122,23 @@ export default function TeacherCalendarPage() {
                       <BookOpen size={16} className="text-yellow-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500">Type</p>
-                      <p className="font-medium text-slate-700 capitalize">{selectedEvent.type}</p>
+                      <p className="text-sm text-slate-500">{t("teacher.type")}</p>
+                      <p className="font-medium text-slate-700 capitalize">{t(`teacher.${selectedEvent.type}`)}</p>
                     </div>
                   </div>
+                  {selectedEvent.lessonData && (
+                    <div className="pt-2 border-t">
+                      <p className="text-sm text-slate-500">{t("teacher.status")}</p>
+                      <p className="font-medium text-slate-700 capitalize">
+                        {t(`teacher.status_${selectedEvent.lessonData.status}`)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </GlassCard>
 
-              {selectedEvent.type === "lesson" && (
-                <Link href={`/teacher/lessons/1`}>
+              {selectedEvent.type === "lesson" && selectedEvent.lessonData && (
+                <Link href={`/teacher/lessons/${selectedEvent.lessonData.id}`}>
                   <GlassButton variant="primary" className="w-full">
                     {t("common.view")} {t("teacher.lessonDetail")}
                   </GlassButton>

@@ -34,7 +34,7 @@ class UserListView(generics.ListCreateAPIView):
     """List and create users (Admin only)"""
     permission_classes = [IsAuthenticated, IsAdmin]
     serializer_class = UserSerializer
-    filter_set_class = UserFilter
+    filterset_class = UserFilter
     pagination_class = None
     
     def get_queryset(self):
@@ -158,7 +158,7 @@ class TeacherListView(generics.ListCreateAPIView):
     """List all teachers"""
     serializer_class = UserListSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-    filter_set_class = UserFilter
+    filterset_class = UserFilter
     
     def get_queryset(self):
         return User.objects.filter(role='teacher', is_active=True)
@@ -175,7 +175,7 @@ class StudentListView(generics.ListCreateAPIView):
     """List all students"""
     serializer_class = UserListSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-    filter_set_class = UserFilter
+    filterset_class = UserFilter
     
     def get_queryset(self):
         return User.objects.filter(role='student', is_active=True)

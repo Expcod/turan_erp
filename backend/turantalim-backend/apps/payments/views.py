@@ -17,7 +17,7 @@ class PaymentListView(generics.ListCreateAPIView):
     """List and create payments"""
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
-    filter_set_class = PaymentFilter
+    filterset_class = PaymentFilter
     
     def get_queryset(self):
         user = self.request.user

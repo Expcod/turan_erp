@@ -51,10 +51,19 @@ export default function TeacherDashboard() {
           homeworkApi.getAll().catch(() => []),
         ])
 
-        // Ensure arrays (handle paginated responses)
-        const groupsData = Array.isArray(groupsResponse) ? groupsResponse : []
-        const lessonsData = Array.isArray(lessonsResponse) ? lessonsResponse : []
-        const homeworkData = Array.isArray(homeworkResponse) ? homeworkResponse : []
+        // Helper to ensure array (handle paginated responses)
+        const ensureArray = <T,>(data: T[] | { results?: T[] } | null | undefined): T[] => {
+          if (Array.isArray(data)) return data
+          if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+            return data.results
+          }
+          return []
+        }
+
+        // Ensure arrays
+        const groupsData = ensureArray(groupsResponse)
+        const lessonsData = ensureArray(lessonsResponse)
+        const homeworkData = ensureArray(homeworkResponse)
 
         // Calculate stats
         const activeGroups = groupsData.filter(g => g.status === "active")

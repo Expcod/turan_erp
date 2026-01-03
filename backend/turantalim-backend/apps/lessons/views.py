@@ -15,7 +15,7 @@ class LessonListView(generics.ListCreateAPIView):
     """List and create lessons"""
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
-    filter_set_class = LessonFilter
+    filterset_class = LessonFilter
     
     def get_queryset(self):
         user = self.request.user
@@ -58,7 +58,7 @@ class GroupLessonsView(generics.ListAPIView):
     """List lessons for a specific group"""
     serializer_class = LessonDetailSerializer
     permission_classes = [IsAuthenticated]
-    filter_set_class = LessonFilter
+    filterset_class = LessonFilter
     
     def get_queryset(self):
         group_id = self.kwargs['group_id']

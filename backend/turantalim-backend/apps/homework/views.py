@@ -17,7 +17,7 @@ from core.filters import HomeworkFilter
 class HomeworkListView(generics.ListCreateAPIView):
     """List homeworks"""
     permission_classes = [IsAuthenticated]
-    filter_set_class = HomeworkFilter
+    filterset_class = HomeworkFilter
     
     def get_serializer_class(self):
         if self.request.method == 'POST':

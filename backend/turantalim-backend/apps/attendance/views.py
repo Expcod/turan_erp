@@ -16,7 +16,7 @@ class AttendanceListView(generics.ListCreateAPIView):
     """List and mark attendance (Teachers only)"""
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated, IsTeacher]
-    filter_set_class = AttendanceFilter
+    filterset_class = AttendanceFilter
     
     def get_queryset(self):
         user = self.request.user

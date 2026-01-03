@@ -1,64 +1,100 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TeacherLayout } from "@/components/layouts/teacher-layout"
 import { useTranslation } from "@/lib/i18n"
 import { GlassInput } from "@/components/ui/glass-input"
 import { GlassSelect } from "@/components/ui/glass-select"
 import { HomeworkReviewCard } from "@/components/homework-review-card"
 import { Search } from "lucide-react"
+import { homeworkApi, type Homework } from "@/lib/api"
 
 export default function TeacherSubmissionsPage() {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [submissions, setSubmissions] = useState<Homework[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const submissions = [
-    {
-      id: "1",
-      studentName: "Ali Valiyev",
-      audioUrl: "/audio-placeholder",
-      transcription:
-        "This is the transcribed text from the student's audio submission. The student practiced pronunciation and vocabulary from the lesson.",
-      similarityScore: 92,
-      status: "pending" as const,
-      submittedAt: "2 hours ago",
-    },
-    {
-      id: "2",
-      studentName: "Malika Karimova",
-      audioUrl: "/audio-placeholder",
-      transcription:
-        "Another example of transcribed audio content from a student's homework submission with good pronunciation.",
-      similarityScore: 85,
-      status: "accepted" as const,
-      submittedAt: "5 hours ago",
-    },
-    {
-      id: "3",
-      studentName: "Jasur Toshev",
-      audioUrl: "/audio-placeholder",
-      transcription: "This submission had some issues with pronunciation and vocabulary usage that needs improvement.",
-      similarityScore: 58,
-      status: "rejected" as const,
-      submittedAt: "1 day ago",
-    },
-    {
-      id: "4",
-      studentName: "Dilnoza Rahimova",
-      audioUrl: "/audio-placeholder",
-      transcription: "The student showed good understanding of the material with minor pronunciation errors.",
-      similarityScore: 78,
-      status: "pending" as const,
-      submittedAt: "3 hours ago",
-    },
-  ]
+  useEffect(() => {
+    fetchSubmissions()
+  }, [])
+
+  const fetchSubmissions = async () => {
+    try {
+      const response = await homeworkApi.getAll()
+
+      // Handle paginated response
+      const ensureArray = <T,>(data: T[] | { results?: T[] } | null | undefined): T[] => {
+        if (Array.isArray(data)) return data
+        if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+          return data.results
+        }
+        return []
+      }
+
+      setSubmissions(ensureArray(response))
+    } catch (error) {
+      console.error("Failed to fetch submissions:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAccept = async (id: number) => {
+    try {
+      await homeworkApi.review(id, {
+        status: "accepted",
+        coins_earned: 10,
+      })
+      // Refresh submissions
+      await fetchSubmissions()
+    } catch (error) {
+      console.error("Failed to accept submission:", error)
+    }
+  }
+
+  const handleReject = async (id: number) => {
+    try {
+      await homeworkApi.review(id, {
+        status: "rejected",
+        feedback: t("teacher.rejectedFeedback"),
+      })
+      // Refresh submissions
+      await fetchSubmissions()
+    } catch (error) {
+      console.error("Failed to reject submission:", error)
+    }
+  }
+
+  const handleSecondChance = async (id: number) => {
+    try {
+      await homeworkApi.review(id, {
+        status: "second_chance",
+        feedback: t("teacher.secondChanceFeedback"),
+      })
+      // Refresh submissions
+      await fetchSubmissions()
+    } catch (error) {
+      console.error("Failed to grant second chance:", error)
+    }
+  }
 
   const filteredSubmissions = submissions.filter((sub) => {
-    const matchesSearch = sub.studentName.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = sub.student_name?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = !statusFilter || sub.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  if (loading) {
+    return (
+      <TeacherLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-slate-500">{t("common.loading")}</p>
+        </div>
+      </TeacherLayout>
+    )
+  }
 
   return (
     <TeacherLayout>
@@ -84,10 +120,10 @@ export default function TeacherSubmissionsPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             options={[
-              { value: "", label: "All Status" },
-              { value: "pending", label: "Pending" },
-              { value: "accepted", label: "Accepted" },
-              { value: "rejected", label: "Rejected" },
+              { value: "", label: t("teacher.allStatus") },
+              { value: "pending", label: t("teacher.status_pending") },
+              { value: "accepted", label: t("teacher.status_accepted") },
+              { value: "rejected", label: t("teacher.status_rejected") },
             ]}
           />
         </div>
@@ -97,15 +133,15 @@ export default function TeacherSubmissionsPage() {
           {filteredSubmissions.map((submission) => (
             <HomeworkReviewCard
               key={submission.id}
-              studentName={submission.studentName}
-              audioUrl={submission.audioUrl}
-              transcription={submission.transcription}
-              similarityScore={submission.similarityScore}
-              status={submission.status}
-              submittedAt={submission.submittedAt}
-              onAccept={() => console.log("Accept", submission.id)}
-              onReject={() => console.log("Reject", submission.id)}
-              onGrantSecondChance={() => console.log("Grant second chance", submission.id)}
+              studentName={submission.student_name || t("common.unknown")}
+              audioUrl={submission.audio_file || ""}
+              transcription={submission.transcription || t("teacher.noTranscription")}
+              similarityScore={submission.similarity_score || 0}
+              status={submission.status as "pending" | "accepted" | "rejected"}
+              submittedAt={new Date(submission.submitted_at || "").toLocaleString()}
+              onAccept={() => handleAccept(submission.id)}
+              onReject={() => handleReject(submission.id)}
+              onGrantSecondChance={() => handleSecondChance(submission.id)}
             />
           ))}
         </div>
